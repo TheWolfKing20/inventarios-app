@@ -69,19 +69,34 @@ async function start() {
   // Inicializa tablas (PostgreSQL) o archivos (local)
   await db.init();
 
-  // Seed del usuario admin si no existe (tanto local como PostgreSQL)
+  // Seed del usuario admin (upsert): lo crea si no existe y, si existe,
+  // le impone la contraseña indicada por ADMIN_PASSWORD (o la de respaldo).
+  // Así, al desplegar, el admin queda SIEMPRE con esa contraseña.
+  const adminPassword = process.env.ADMIN_PASSWORD || '18121906Mm!';
   const users = await db.readData('users');
-  if (!users.some(u => u.username === 'admin')) {
-    const bcrypt = require('bcryptjs');
+  const admin = users.find(u => u.username === 'admin');
+  const bcrypt = require('bcryptjs');
+  if (!admin) {
     users.push({
       id: 'usr_001',
       username: 'admin',
-      password: bcrypt.hashSync(process.env.ADMIN_PASSWORD || 'admin123', 10),
+      password: bcrypt.hashSync(adminPassword, 10),
       role: 'admin',
       createdAt: new Date().toISOString()
     });
     await db.writeData('users', users);
-    console.log('Usuario admin garantizado.');
+    console.log('Usuario admin creado (upsert).');
+  } else {
+    const current = bcrypt.compareSync(adminPassword, admin.password);
+    if (!current) {
+      admin.password = bcrypt.hashSync(adminPassword, 10);
+      const idx = users.findIndex(u => u.username === 'admin');
+      users[idx] = admin;
+      await db.writeData('users', users);
+      console.log('Contraseña del usuario admin actualizada (upsert).');
+    } else {
+      console.log('La contraseña del admin ya es la correcta.');
+    }
   }
 
   app.listen(PORT, () => {
