@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=InventariosApp
+Comment=Sistema de Gestión de Inventarios
+Exec=bash -c 'cd "%k" && ./iniciar.sh'
+Icon=inventory
+Terminal=true
+Type=Application
+Categories=Office;Utility;

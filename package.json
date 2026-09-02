@@ -1,0 +1,20 @@
+{
+  "name": "inventarios-app",
+  "version": "1.0.0",
+  "description": "App web local para gestión de inventarios",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "dev": "node --watch server/server.js"
+  },
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "exceljs": "^4.4.0",
+    "express": "^4.21.0",
+    "jsonwebtoken": "^9.0.2",
+    "multer": "^2.3.0",
+    "pdfkit": "^0.15.0",
+    "pg": "^8.23.0",
+    "uuid": "^10.0.0"
+  }
+}

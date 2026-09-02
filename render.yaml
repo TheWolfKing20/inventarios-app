@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: inventariosapp
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/server.js
+    healthCheckPath: /index.html
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: inventariosapp-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_PASSWORD
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: '*'
+
+databases:
+  - name: inventariosapp-db
+    plan: free
+    databaseName: inventariosapp
+    user: inventariosapp
