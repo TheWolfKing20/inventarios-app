@@ -707,6 +707,7 @@ input:focus, select:focus, textarea:focus {
     transition: transform 0.25s ease;
     box-shadow: 2px 0 12px rgba(0,0,0,0.2);
     width: 260px;
+    z-index: 400;
   }
   .sidebar.menu-open { transform: translateX(0); }
   .sidebar-logo span { display: inline; }
