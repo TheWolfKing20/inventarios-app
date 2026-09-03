@@ -497,8 +497,12 @@
     const isDaySale = type === 'day_sale';
 
     if (isDaySale) {
-      // Venta del día (caja): registra solo el efectivo recaudado en el día
-      if (!daySaleCalc || daySaleCalc <= 0) { toast('Calcula la venta del día primero (efectivo final − fondo inicial)', 'error'); return; }
+      // Venta del día (caja): recalcular al guardar (caja final − fondo inicial)
+      // para no depender de que el usuario haya pulsado "Calcular venta"
+      const inicio = Number($('#entDayStart').value) || 0;
+      const fin = Number($('#entDayEnd').value) || 0;
+      const calc = Math.max(0, fin - inicio);
+      if (calc <= 0) { toast('La venta del día debe ser mayor que 0. Pon el fondo inicial y el efectivo final de la caja.', 'error'); return; }
       const body = {
         date: $('#entFilterDate') ? $('#entFilterDate').value || $('#entDate').value : $('#entDate').value,
         type: 'sale',
@@ -508,7 +512,7 @@
         quantity: 0,
         unit: '',
         totalCost: 0,
-        totalSale: daySaleCalc,
+        totalSale: calc,
         lossReason: '',
         hasInvoice: false
       };
