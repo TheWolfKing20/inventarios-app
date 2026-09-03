@@ -39,6 +39,7 @@ router.post('/', async (req, res) => {
     totalSale: req.body.totalSale !== undefined ? Number(req.body.totalSale) : 0,
     hasInvoice: !!req.body.hasInvoice,
     invoiceRef: req.body.invoiceRef || '',
+    isDaySale: !!req.body.isDaySale,
     supplierId: req.body.supplierId || '',
     lossReason: req.body.lossReason || '',
     notes: req.body.notes || '',
@@ -64,7 +65,7 @@ router.put('/:id', async (req, res) => {
   const idx = entries.findIndex(e => e.id === req.params.id);
   if (idx === -1) return res.status(404).json({ error: 'Registro no encontrado' });
 
-  const allowed = ['date', 'type', 'productId', 'description', 'quantity', 'unit', 'unitCost', 'totalCost', 'totalSale', 'hasInvoice', 'invoiceRef', 'supplierId', 'lossReason', 'notes'];
+  const allowed = ['date', 'type', 'productId', 'description', 'quantity', 'unit', 'unitCost', 'totalCost', 'totalSale', 'hasInvoice', 'invoiceRef', 'supplierId', 'lossReason', 'notes', 'isDaySale'];
   allowed.forEach(field => {
     if (req.body[field] !== undefined) entries[idx][field] = req.body[field];
   });

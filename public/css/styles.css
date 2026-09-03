@@ -449,6 +449,11 @@ input:focus, select:focus, textarea:focus {
 .quick-row .flex-2 { flex: 2; }
 .quick-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; flex-wrap: wrap; }
 
+.day-sale-result { margin-left: 0.5rem; font-weight: 600; color: var(--text-light); font-size: 0.9rem; white-space: nowrap; }
+#daySaleRow { align-items: flex-end; }
+#daySaleRow .form-group { flex: 1; min-width: 140px; }
+#btnCalcularDia { flex-shrink: 0; }
+
 .panel-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; flex-wrap: wrap; gap: 0.5rem; }
 .compact-input { max-width: 160px; padding: 0.4rem 0.6rem; font-size: 0.85rem; }
 

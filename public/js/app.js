@@ -192,13 +192,14 @@
           <div class="chart-box">
             <h3>Últimos Registros</h3>
             <table class="data-table small">
-              <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Monto</th></tr></thead>
+              <thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Valor</th></tr></thead>
               <tbody>
                 ${data.totals.entries.length ? data.totals.entries.map(e => {
                   const typeName = { purchase: 'Compra', sale: 'Venta', loss: 'Pérdida' }[e.type] || e.type;
                   const typeClass = { purchase: 'badge-purchase', sale: 'badge-sale', loss: 'badge-loss' }[e.type] || '';
                   const amount = e.type === 'sale' ? e.totalSale : e.totalCost;
-                  return `<tr><td>${e.date}</td><td><span class="mini-badge ${typeClass}">${typeName}</span></td><td>${e.description || prodName(e.productId) || '-'}</td><td>${money(amount)}</td></tr>`;
+                  const label = (e.type === 'sale' && e.isDaySale) ? 'Venta del día' : typeName;
+                  return `<tr><td>${e.date}</td><td><span class="mini-badge ${typeClass}">${label}</span></td><td>${e.isDaySale ? '<em>Efectivo</em>' : (e.description || prodName(e.productId) || '-')}</td><td>${money(amount)}</td></tr>`;
                 }).join('') : '<tr><td colspan="4" class="empty-state">Sin registros aún</td></tr>'}
               </tbody>
             </table>
@@ -307,24 +308,38 @@
           <div class="quick-row">
             <div class="form-group flex-2">
               <label>Producto o descripción</label>
-              <input type="text" id="entSearch" list="prodList" placeholder="Escribe o elige un producto">
-              <datalist id="prodList">${allProducts.filter(p => p.active).map(p => `<option value="${p.name}">`).join('')}</datalist>
+<input type="text" id="entSearch" placeholder="Escribe o elige un producto" autocomplete="off">
             </div>
             <div class="form-group">
               <label>Tipo</label>
               <select id="entType">
                 <option value="purchase">Compra</option>
                 <option value="sale">Venta</option>
+                <option value="day_sale">Venta del día (caja)</option>
                 <option value="loss">Pérdida</option>
               </select>
             </div>
-            <div class="form-group">
+            <div class="form-group" id="entQtyWrap">
               <label>Cantidad</label>
               <input type="number" id="entQty" min="0" step="any" placeholder="opcional">
             </div>
-            <div class="form-group">
-              <label>Monto</label>
+            <div class="form-group" id="entAmountWrap">
+              <label id="entAmountLabel">Valor</label>
               <input type="number" id="entAmount" min="0" step="0.01" placeholder="0.00">
+            </div>
+          </div>
+          <div class="quick-row" id="daySaleRow" style="display:none;">
+            <div class="form-group">
+              <label>Fondo inicial de caja (efectivo con que comenzó)</label>
+              <input type="number" id="entDayStart" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group">
+              <label>Efectivo al final del día (en caja)</label>
+              <input type="number" id="entDayEnd" min="0" step="0.01" placeholder="0.00">
+            </div>
+            <div class="form-group" style="align-self:flex-end;">
+              <button type="button" class="btn btn-secondary" id="btnCalcularDia">Calcular venta</button>
+              <span class="day-sale-result" id="daySaleResult"></span>
             </div>
           </div>
           <div class="quick-row" id="lossRow" style="display:none;">
@@ -345,7 +360,7 @@
           </div>
           <div class="table-container">
             <table class="data-table small">
-              <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto / Detalle</th><th>Cant.</th><th>Monto</th>${isAdmin ? '<th>Acciones</th>' : ''}</tr></thead>
+              <thead><tr><th>Fecha</th><th>Tipo</th><th>Producto / Detalle</th><th>Cant.</th><th>Valor</th>${isAdmin ? '<th>Acciones</th>' : ''}</tr></thead>
               <tbody id="entBody"></tbody>
             </table>
           </div>
@@ -354,11 +369,84 @@
       `;
 
       $('#entType').addEventListener('change', () => {
-        $('#lossRow').style.display = $('#entType').value === 'loss' ? 'flex' : 'none';
-        $('#entAmount').placeholder = $('#entType').value === 'sale' ? 'Monto de venta' : 'Costo';
+        const t = $('#entType').value;
+        const isDay = t === 'day_sale';
+        const isLoss = t === 'loss';
+        // Venta del día: ocultar producto/cantidad/valor, mostrar caja final e inicial
+        const searchWrap = $('#entSearch').closest('.form-group');
+        searchWrap.style.display = isDay ? 'none' : '';
+        $('#entQtyWrap').style.display = isDay ? 'none' : '';
+        $('#entAmountWrap').style.display = isDay ? 'none' : '';
+        $('#lossRow').style.display = isLoss ? 'flex' : 'none';
+        $('#daySaleRow').style.display = isDay ? 'flex' : 'none';
+        $('#entAmountLabel').textContent = t === 'sale' ? 'Valor de venta' : t === 'purchase' ? 'Valor de compra' : t === 'loss' ? 'Valor de la pérdida' : 'Valor';
+        $('#entAmount').placeholder = t === 'sale' ? 'Valor de venta' : 'Costo';
       });
+
+      let daySaleCalc = 0;
+      $('#btnCalcularDia').addEventListener('click', () => {
+        const inicio = Number($('#entDayStart').value) || 0;
+        const final = Number($('#entDayEnd').value) || 0;
+        daySaleCalc = Math.max(0, final - inicio);
+        $('#daySaleResult').textContent = daySaleCalc > 0 ? `Venta del día: ${money(daySaleCalc)}` : (final === 0 && inicio === 0 ? '' : 'La caja no cerró con ganancia');
+      });
+      // Calcular en cuanto se teclea
+      $('#entDayEnd').addEventListener('input', () => $('#btnCalcularDia').click());
       $('#entFilterDate').addEventListener('change', () => renderEntries(cycle, $('#entFilterDate').value));
       renderEntries(cycle, new Date().toISOString().split('T')[0]);
+
+      // ===== Autocompletado en vivo para el producto de la entrada =====
+      const entSearch = $('#entSearch');
+      const entAcBox = document.createElement('div');
+      entAcBox.className = 'ac-box';
+      entAcBox.style.display = 'none';
+      entSearch.parentNode.appendChild(entAcBox);
+      const entNormalize = (s) => (s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().replace(/\s+/g, ' ');
+      const entActive = allProducts.filter(p => p.active);
+      let entAcItems = [], entAcIndex = -1;
+
+      const entShowAc = (list, anchor) => {
+        entAcItems = list; entAcIndex = -1;
+        if (!list.length || !anchor) { entAcBox.style.display = 'none'; return; }
+        entAcBox.innerHTML = list.map((p, i) => `
+          <div class="ac-item" data-idx="${i}">
+            <span class="ac-name">${p.name}</span>
+            <span class="ac-meta">${p.category === 'perecedero' ? 'perecedero' : p.category === 'no_perecedero' ? 'no perecedero' : p.category || ''}${p.unit ? ' · ' + p.unit : ''}</span>
+          </div>`).join('');
+        entAcBox.querySelectorAll('.ac-item').forEach((el, i) => {
+          el.addEventListener('click', () => entSelect(i));
+          el.addEventListener('mousemove', () => { entAcIndex = i; entRenderAc(); });
+        });
+        entRenderAc();
+        const rect = anchor.getBoundingClientRect();
+        entAcBox.style.left = rect.left + 'px';
+        entAcBox.style.top = (rect.bottom + window.scrollY) + 'px';
+        entAcBox.style.width = rect.width + 'px';
+        entAcBox.style.display = 'block';
+      };
+      const entRenderAc = () => {
+        entAcBox.querySelectorAll('.ac-item').forEach(el => el.classList.toggle('active', Number(el.dataset.idx) === entAcIndex));
+        const active = entAcBox.querySelector('.ac-item.active');
+        if (active) active.scrollIntoView({ block: 'nearest' });
+      };
+      const entSelect = (i) => {
+        if (entAcItems[i]) { entSearch.value = entAcItems[i].name; entAcBox.style.display = 'none'; entSearch.focus(); }
+      };
+      entSearch.addEventListener('input', () => {
+        const t = entNormalize(entSearch.value);
+        if (!t) { entShowAc([], null); return; }
+        entShowAc([...entActive.filter(p => entNormalize(p.name).startsWith(t)), ...entActive.filter(p => entNormalize(p.name).includes(t) && !entNormalize(p.name).startsWith(t))].slice(0, 10), entSearch);
+      });
+      entSearch.addEventListener('keydown', (e) => {
+        const acOpen = entAcBox.style.display !== 'none' && entAcItems.length > 0;
+        if ((e.key === 'Tab' || e.key === 'ArrowDown') && acOpen) { e.preventDefault(); entAcIndex = (entAcIndex + 1) % entAcItems.length; entRenderAc(); return; }
+        if (e.key === 'ArrowUp' && acOpen) { e.preventDefault(); entAcIndex = (entAcIndex - 1 + entAcItems.length) % entAcItems.length; entRenderAc(); return; }
+        if (e.key === 'Escape' && acOpen) { e.preventDefault(); entAcBox.style.display = 'none'; return; }
+        if (e.key === 'Enter' && acOpen) { e.preventDefault(); if (entAcIndex >= 0) entSelect(entAcIndex); else entSelect(0); return; }
+      });
+      document.addEventListener('click', (e) => {
+        if (!entAcBox.contains(e.target) && e.target !== entSearch && e.target.id !== 'entQty' && e.target.id !== 'entAmount' && e.target.id !== 'btnAddEntry' && e.target.id !== 'btnAddAnother') entAcBox.style.display = 'none';
+      });
 
       $('#btnAddEntry').addEventListener('click', () => submitEntry(cycle, false));
       $('#btnAddAnother').addEventListener('click', () => submitEntry(cycle, true));
@@ -374,11 +462,12 @@
       const typeClass = { purchase: 'badge-purchase', sale: 'badge-sale', loss: 'badge-loss' };
       tbody.innerHTML = entries.length ? entries.map(e => {
         const amount = e.type === 'sale' ? e.totalSale : e.totalCost;
+        const label = (e.type === 'sale' && e.isDaySale) ? 'Venta del día' : (typeName[e.type] || e.type);
         return `<tr>
           <td>${e.date}</td>
-          <td><span class="mini-badge ${typeClass[e.type]}">${typeName[e.type] || e.type}</span></td>
-          <td>${e.description || prodName(e.productId) || '-'}${e.hasInvoice ? ' <span class="invoice-icon" title="Con factura">🧾</span>' : ''}</td>
-          <td>${e.quantity || '-'}</td>
+          <td><span class="mini-badge ${typeClass[e.type]}">${label}</span></td>
+          <td>${e.isDaySale ? '<em>Efectivo (caja final − fondo)</em>' : (e.description || prodName(e.productId) || '-')}${e.hasInvoice ? ' <span class="invoice-icon" title="Con factura">🧾</span>' : ''}</td>
+          <td>${e.quantity && !e.isDaySale ? e.quantity : '-'}</td>
           <td>${money(amount)}</td>
           ${isAdmin ? `<td class="actions-cell">
             <button class="btn-icon btn-edit" onclick="appEditEntry('${e.id}')" title="Editar"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
@@ -404,11 +493,44 @@
   }
 
   async function submitEntry(cycle, keepForm) {
+    const type = $('#entType').value;
+    const isDaySale = type === 'day_sale';
+
+    if (isDaySale) {
+      // Venta del día (caja): registra solo el efectivo recaudado en el día
+      if (!daySaleCalc || daySaleCalc <= 0) { toast('Calcula la venta del día primero (efectivo final − fondo inicial)', 'error'); return; }
+      const body = {
+        date: $('#entFilterDate') ? $('#entFilterDate').value || $('#entDate').value : $('#entDate').value,
+        type: 'sale',
+        isDaySale: true,
+        productId: '',
+        description: 'Venta del día (caja)',
+        quantity: 0,
+        unit: '',
+        totalCost: 0,
+        totalSale: daySaleCalc,
+        lossReason: '',
+        hasInvoice: false
+      };
+      try {
+        await api('/api/entries', { method: 'POST', body });
+        if (keepForm) {
+          $('#entDayStart').value = ''; $('#entDayEnd').value = '';
+          $('#daySaleResult').textContent = ''; daySaleCalc = 0;
+          toast('Venta del día agregada. Sigue anotando.');
+        } else {
+          toast('Venta del día agregada');
+          closeModal();
+        }
+        renderEntries(cycle, $('#entFilterDate') ? $('#entFilterDate').value : $('#entDate').value);
+      } catch (err) { toast(err.message, 'error'); }
+      return;
+    }
+
     const searchVal = $('#entSearch').value.trim();
-    if (!searchVal) { toast('Escribe qué se compró/vendió/perdió', 'error'); return; }
+    if (!searchVal) { toast(isDaySale ? 'Escribe la venta del día' : 'Escribe qué se compró/vendió/perdió', 'error'); return; }
 
     const product = allProducts.find(p => p.name.toLowerCase() === searchVal.toLowerCase());
-    const type = $('#entType').value;
     const amount = Number($('#entAmount').value) || 0;
     const qty = Number($('#entQty').value) || 0;
 
@@ -425,7 +547,7 @@
       hasInvoice: $('#entInvoice') ? $('#entInvoice').value === '1' : false
     };
 
-    // Si en venta no hay producto y solo dio monto, registrar el monto como venta
+    // Si en venta no hay producto y solo dio valor, registrar el valor como venta
     if (type === 'sale' && !product && !qty) {
       body.description = searchVal;
       body.totalSale = amount;
@@ -468,8 +590,8 @@
           <div class="form-group"><label>Cantidad</label><input type="number" id="eeQty" value="${e.quantity || 0}" step="any"></div>
         </div>
         <div class="form-row">
-          <div class="form-group"><label>Monto costo</label><input type="number" id="eeCost" value="${e.totalCost || 0}" step="0.01"></div>
-          <div class="form-group"><label>Monto venta</label><input type="number" id="eeSale" value="${e.totalSale || 0}" step="0.01"></div>
+          <div class="form-group"><label>Valor compra</label><input type="number" id="eeCost" value="${e.totalCost || 0}" step="0.01"></div>
+          <div class="form-group"><label>Valor venta</label><input type="number" id="eeSale" value="${e.totalSale || 0}" step="0.01"></div>
         </div>
         <div class="form-group"><label>Motivo pérdida</label><input type="text" id="eeReason" value="${e.lossReason || ''}"></div>
         <div class="form-actions">
